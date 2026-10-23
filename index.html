@@ -4,10 +4,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Финансы</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<meta name="theme-color" content="#0e0e10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Финансы">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script>
+// В Telegram грузим его скрипт, в веб-версии (с экрана «Домой») обходимся без него
+var IN_TG=!!(window.TelegramWebviewProxy||window.parent!==window||/tgWebApp/.test(location.hash+location.search)||(function(){try{return sessionStorage.getItem('__telegram__initParams')}catch(e){}})());
+if(IN_TG)document.write('<script src="https://telegram.org/js/telegram-web-app.js"><\/script>');
+else document.documentElement.classList.add('web');
+</script>
 <style>
 :root{--bg:#0e0e10;--card:#161618;--card2:#202023;--input:#18181a;--line:#29292c;--line2:#212124;--seg:#151517;--segon:#2a2a2e;--sheet:#121214;--hero1:#1f1f22;--hero2:#141416;--nav:rgba(22,22,24,.9);--text:#e9e7e1;--muted:#8a8984;--accent:#ddd3bd;--onacc:#17150f;--red:#dd8f86;--green:#8fbf9a;--gold:#c9a96e}
 *{box-sizing:border-box}
+html.web #app{padding-top:calc(18px + env(safe-area-inset-top))}
 body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 -apple-system,system-ui,"SF Pro Display","Segoe UI",Roboto,sans-serif;font-variant-numeric:tabular-nums;-webkit-tap-highlight-color:transparent}
 #app{max-width:520px;margin:0 auto;padding:calc(18px + var(--tg-content-safe-area-inset-top,0px) + var(--tg-safe-area-inset-top,0px)) 16px 130px;display:flex;flex-direction:column;gap:12px;min-height:100dvh}
 .card{background:var(--card);border:1px solid var(--line2);border-radius:22px;padding:16px 18px;display:flex;flex-direction:column;gap:4px}
@@ -151,6 +164,8 @@ nav button svg{transition:transform .35s var(--ease)}nav button.hov{color:var(--
 <script>
 // Адрес сервера синхронизации. Пусто: данные хранятся только в облаке Telegram.
 const SERVER_URL='';
+// Адрес ИИ помощника (Cloudflare Worker). Пусто: помощник выключен.
+const AI_URL='';
 const tg=window.Telegram&&Telegram.WebApp;
 if(tg){tg.ready();tg.expand();try{tg.setHeaderColor('#0d0d0f');tg.setBackgroundColor('#0d0d0f');tg.disableVerticalSwipes&&tg.disableVerticalSwipes()}catch(e){}}
 const cloud=tg&&tg.CloudStorage&&tg.isVersionAtLeast&&tg.isVersionAtLeast('6.9')?tg.CloudStorage:null;
@@ -865,7 +880,7 @@ function homeView(){const a=homeAcc(),[from,to]=mRange(0),n=live().length;
   const cell=(l,v,c='',click='')=>`<div${click?` class="hob" onclick="${click}"`:''}><span class="m">${l}</span><div class="mid ${c}">${v}</div></div>`;
   const hero=(lbl,big,cells)=>{homeBig=big;return `<div class="card hero">${selBtn}<div><span class="m">${lbl}</span><div><b class="big" id="nw">${fmt(big)}</b></div></div><div class="grid3 hs">${cells.join('')}</div></div>`};
   if(!a){const T=totals(),M=month(),B=billSum(billItems());
-    return head+hero('Чистый капитал',T.net,[cell('Свои деньги',fmt(T.assets)),cell('Долги',fmt(T.debt)),cell('Обязательства',(B.est?'≈ ':'')+fmt(B.tot),'',"openBills()")])+qa
+    return head+hero('Чистый капитал',T.net,[cell('Свои деньги',fmt(T.assets)),cell('Долги',fmt(T.debt)),cell('Обязательства',(B.est?'≈ ':'')+fmt(B.tot),'',"openBills()")])+qa+aiBtn()
     +`<div class="grid"><div class="card"><span class="m">Доходы за месяц</span><b class="mid pos">${fmt(M.i)}</b></div><div class="card"><span class="m">Расходы за месяц</span><b class="mid">${fmt(M.o)}</b><span class="m" style="font-size:12.5px">≈ ${fmt(Math.round(M.o/new Date().getDate()))} в день</span></div></div>`
     +billsHome()+budgetHome()+goalsHome()+`<h2>Последние операции</h2>`+txList(S.txs.slice().sort((x,y)=>y.date-x.date).slice(0,5))+pol}
   const b=bal(a);let mi=0,mo=0,inLoan=0;
@@ -876,7 +891,7 @@ function homeView(){const a=homeAcc(),[from,to]=mRange(0),n=live().length;
   else{const bl=billItems().filter(x=>x.kind==='bill'&&(S.bills.find(y=>y.id===x.id)||{}).acc===a.id);
     h=hero('Остаток',b,[cell('Доходы за месяц',fmt(mi),'pos'),cell('Расходы за месяц',fmt(mo)),cell('Платежи с карты',bl.length?fmt(billSum(bl).tot):'—','',bl.length?'openBills()':'')])}
   const ops=S.txs.filter(t=>t.acc===a.id||t.to===a.id).sort((x,y)=>y.date-x.date).slice(0,5);
-  return head+h+qa+`<h2>Операции по счёту</h2>`+txList(ops)+(ops.length?`<button class="lnk" onclick="flt={acc:'${a.id}',q:'',m:'all'};calv=false;go('Операции')">Все операции по счёту</button>`:'')+pol}
+  return head+h+qa+aiBtn()+`<h2>Операции по счёту</h2>`+txList(ops)+(ops.length?`<button class="lnk" onclick="flt={acc:'${a.id}',q:'',m:'all'};calv=false;go('Операции')">Все операции по счёту</button>`:'')+pol}
 function pickHome(){const cur=homeAcc();
   sheet(`<h2>Что показывать на главной</h2><span class="m">Можно смотреть все счета вместе или одну карту.</span>
   <button class="api${cur?'':' on'}" onclick="setHome('')"><span class="ar">${ico('layers','#9db4d6',30)}<span class="apt"><span>Все счета вместе</span><span class="m">Чистый капитал по всем счетам</span></span></span></button>
@@ -1201,7 +1216,70 @@ async function boot(){
   bx.addEventListener('touchstart',e=>{y0=bx.scrollTop<=0?e.touches[0].clientY:null;dy=0},{passive:true});
   bx.addEventListener('touchmove',e=>{if(y0==null)return;dy=e.touches[0].clientY-y0;if(dy>0){bx.style.transition='none';bx.style.transform=`translateY(${dy}px)`;if(e.cancelable)e.preventDefault()}else{dy=0;bx.style.transform=''}},{passive:false});
   bx.addEventListener('touchend',()=>{if(y0==null)return;bx.style.transition='transform .3s var(--ease)';if(dy>110)closeSheet();else bx.style.transform='';y0=null;dy=0},{passive:true})})();
+
+// ===== ИИ помощник =====
+const AI={msgs:[],busy:false};
+const aiBtn=()=>!(tg&&tg.initData)?'':`<button class="card" style="flex-direction:row;align-items:center;gap:12px;text-align:left;color:var(--text);font:inherit" onclick="openAI()">${ico('spark','#c4b5e8',36)}<span class="apt"><span>ИИ помощник</span><span class="m">Спросите о деньгах или напишите «кофе 300»</span></span></button>`;
+const aiR=k=>Math.round(k/100);
+function aiContext(){const now=new Date(),L=[];
+  L.push('Сегодня: '+dkey(Date.now())+'. Валюта: '+CUR.code+' ('+CUR.sym+').');
+  L.push('СЧЕТА (id | название | тип | баланс):');
+  for(const a of live())L.push(a.id+' | '+a.name+' | '+SUB[a.type]+' | '+aiR(bal(a)));
+  L.push('КАТЕГОРИИ (id | название | расход или доход):');
+  for(const c of S.cats.filter(c=>!c.archived))L.push(c.id+' | '+c.name+' | '+(c.kind==='IN'?'доход':'расход'));
+  for(let off=0;off>=-2;off--){const[f,t,sd]=mRange(off),by={};let i=0,o=0;
+    for(const x of S.txs){if(x.date<f||x.date>=t)continue;if(x.type==='IN')i+=x.amt;if(x.type==='OUT'){o+=x.amt;const n=cat(x.cat)?.name||'Без категории';by[n]=(by[n]||0)+x.amt}}
+    L.push('МЕСЯЦ '+ym(sd.getTime())+(off===0?' (текущий, прошло дней: '+now.getDate()+')':'')+': доходы '+aiR(i)+', расходы '+aiR(o)+'. Расходы по категориям: '+(Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([n,v])=>n+' '+aiR(v)).join(', ')||'нет'))}
+  const B=budgetData();if(B.ids.length)L.push('ЛИМИТЫ на месяц: '+B.ids.map(id=>cat(id).name+' лимит '+aiR(S.budgets[id])+', потрачено '+aiR(B.spent[id]||0)).join('; '));
+  if(S.goals.length)L.push('ЦЕЛИ: '+S.goals.map(g=>{const s=gStats(g);return g.name+': '+aiR(s.cur)+' из '+aiR(s.T)+(g.deadline?', срок '+g.deadline:'')}).join('; '));
+  const bl=billItems().filter(x=>!x.done);if(bl.length)L.push('НЕОПЛАЧЕННЫЕ ПЛАТЕЖИ МЕСЯЦА: '+bl.map(x=>x.name+' '+aiR(x.amt)+(x.due?' до '+dkey(x.due):'')).join('; '));
+  L.push('ПОСЛЕДНИЕ ОПЕРАЦИИ:');
+  for(const t of S.txs.slice().sort((a,b)=>b.date-a.date).slice(0,15))L.push(dkey(t.date)+' | '+({IN:'доход',OUT:'расход',TR:'перевод',ADJ:'корректировка'}[t.type])+' | '+aiR(t.amt)+' | '+(t.type==='TR'?(acc(t.acc)?.name||'')+' → '+(acc(t.to)?.name||''):(cat(t.cat)?.name||''))+(t.note?' | '+String(t.note).slice(0,40):''));
+  return L.join('\n')}
+function openAI(){S.settings=S.settings||{};
+  if(!S.settings.aiOk)return sheet(`<div class="ar" style="gap:12px">${ico('spark','#c4b5e8',44)}<h2 style="margin:0">ИИ помощник</h2></div>
+  <span>Помощник отвечает на вопросы о ваших деньгах, даёт советы по бюджету и добавляет операции по тексту, например «кофе 300».</span>
+  <div class="card" style="gap:8px"><b>Что важно знать</b><span class="m">Чтобы ответить, приложение отправляет ИИ сводку: счета и балансы, суммы по категориям за 3 месяца, цели, лимиты и 15 последних операций.</span><span class="m">Сводка обрабатывается нейросетью на серверах Cloudflare, приложение её не сохраняет. Не пишите в чат паспортные данные, номера карт и пароли.</span><span class="m">Без вашего вопроса никакие данные не отправляются. Историю чата приложение не сохраняет.</span></div>
+  <button class="btn" onclick="S.settings.aiOk=1;save();openAI()">Понятно, включить</button><button class="btn g" onclick="closeSheet()">Не сейчас</button><button class="lnk" style="align-self:center" onclick="openPrivacy()">Политика конфиденциальности</button>`);
+  sheet(`<div class="row"><div class="ar" style="gap:10px">${ico('spark','#c4b5e8',32)}<h2 style="margin:0">ИИ помощник</h2></div>${AI.msgs.length?`<button class="lnk" onclick="AI.msgs=[];aiDraw()">Очистить</button>`:''}</div>
+  <div id="ai_l" style="display:flex;flex-direction:column;gap:8px"></div>
+  <div style="display:flex;gap:8px;align-items:flex-end"><textarea id="ai_q" rows="1" placeholder="Вопрос или «такси 450»" style="resize:none" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();aiSend()}"></textarea><button class="ib" style="width:50px;height:50px;background:var(--accent);color:var(--onacc)" onclick="aiSend()" aria-label="Отправить"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div>
+  <span class="m" style="font-size:12px;text-align:center">ИИ может ошибаться. Проверяйте важные цифры.</span>`);
+  aiDraw()}
+const aiTxt=s=>esc(s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\n/g,'<br>');
+const AIQ=['Сколько я потратил в этом месяце?','На чём можно сэкономить?','Успеваю ли я к целям?','кофе 300'];
+function aiDraw(){const l=$('ai_l');if(!l)return;
+  if(!AI.msgs.length){l.innerHTML=`<span class="m">Например:</span>`+AIQ.map(q=>`<button class="api" onclick="aiSend('${esc(q)}')">${esc(q)}</button>`).join('');return}
+  l.innerHTML=AI.msgs.map((m,i)=>m.role==='user'?`<div style="align-self:flex-end;max-width:85%;background:var(--accent);color:var(--onacc);border-radius:18px 18px 4px 18px;padding:10px 14px">${aiTxt(m.text)}</div>`
+    :`<div style="align-self:flex-start;max-width:92%;display:flex;flex-direction:column;gap:8px"><div class="card" style="border-radius:18px 18px 18px 4px;padding:10px 14px;${m.err?'color:var(--red)':''}">${aiTxt(m.text)}</div>${(m.ops||[]).map((o,j)=>aiOpCard(o,i,j)).join('')}${(m.ops||[]).filter(o=>!o.done).length>1?`<button class="btn" onclick="aiAddAll(${i})">Добавить все</button>`:''}</div>`).join('')
+    +(AI.busy?`<div class="card m" style="align-self:flex-start;border-radius:18px 18px 18px 4px;padding:10px 14px">Думаю…</div>`:'');
+  const b=$('box');if(b)b.scrollTop=b.scrollHeight}
+function aiFix(o){const c=cat(o.cat),kind=o.type==='IN'?'IN':'OUT';
+  const cc=c&&!c.archived&&c.kind===kind?c:S.cats.find(x=>x.kind===kind&&!x.archived&&x.name===(kind==='IN'?'Прочие доходы':'Прочие расходы'))||S.cats.find(x=>x.kind===kind&&!x.archived);
+  const a0=acc(o.acc),a=a0&&!a0.archived?a0:homeAcc()||live().find(x=>!DEBT(x.type))||live()[0];
+  const amt=parse(String(o.amount??'').replace(/[^\d.,]/g,''));
+  let date=Date.now();if(/^\d{4}-\d{2}-\d{2}$/.test(o.date||'')&&o.date!==dkey(Date.now())){const[y,m,d]=o.date.split('-').map(Number);date=new Date(y,m-1,d,12,0).getTime()}
+  return{type:kind,cat:cc?.id||'',acc:a?.id||'',amt:amt&&amt>0?amt:0,date,note:String(o.note||'').slice(0,120)}}
+function aiOpCard(o,i,j){const f=aiFix(o),a=acc(f.acc),c=cat(f.cat),ok=f.amt&&a&&c;
+  return `<div class="card" style="gap:6px"><div class="row"><span>${esc(c?.name||'Без категории')}</span><b class="${f.type==='IN'?'pos':''}">${f.type==='IN'?'+':'−'}${fmt(f.amt)}</b></div><span class="m">${dstr(f.date)}${a?', '+esc(a.name):''}${f.note?' · '+esc(f.note):''}</span>${o.done?`<span class="ok">${si('check')} Добавлено</span>`:ok?`<div class="grid"><button class="btn" style="padding:10px" onclick="aiAdd(${i},${j})">Добавить</button><button class="btn g" style="padding:10px" onclick="aiEdit(${i},${j})">Изменить</button></div>`:`<span class="err">Не хватает данных. ${live().length?'':'Сначала добавьте счёт.'}</span>`}</div>`}
+function aiAdd(i,j,quiet){const o=AI.msgs[i].ops[j];if(o.done)return;const f=aiFix(o);if(!f.amt||!acc(f.acc)||!cat(f.cat))return;
+  S.txs.push({id:uid(),type:f.type,acc:f.acc,cat:f.cat,amt:f.amt,date:f.date,note:f.note});o.done=1;
+  if(!quiet){save();render();hap();aiDraw()}}
+function aiAddAll(i){AI.msgs[i].ops.forEach((_,j)=>aiAdd(i,j,1));save();render();hap();aiDraw()}
+function aiEdit(i,j){const f=aiFix(AI.msgs[i].ops[j]);closeSheet();setTimeout(()=>txForm({type:f.type,amt:f.amt,date:f.date,note:f.note,cat:f.cat,acc:f.acc},null),280)}
+async function aiSend(q){const inp=$('ai_q');q=String(q??(inp?inp.value:'')).trim();if(!q||AI.busy)return;if(inp)inp.value='';
+  AI.msgs.push({role:'user',text:q});
+  if(!AI_URL){AI.msgs.push({role:'model',text:'Помощник ещё не подключён: не указан адрес сервера ИИ.',err:1});return aiDraw()}
+  AI.busy=true;aiDraw();
+  try{const r=await fetch(AI_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData:(tg&&tg.initData)||'',context:aiContext(),messages:AI.msgs.filter(m=>!m.err).slice(-10).map(m=>({role:m.role,text:m.text}))})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok||d.error)AI.msgs.push({role:'model',text:d.error||'Ошибка сервера ('+r.status+')',err:1});
+    else AI.msgs.push({role:'model',text:d.reply||'Нет ответа',ops:(d.ops||[]).filter(o=>o&&(o.type==='IN'||o.type==='OUT'))})}
+  catch(e){AI.msgs.push({role:'model',text:'Нет связи с помощником. Проверьте интернет.',err:1})}
+  AI.busy=false;aiDraw()}
+
 boot();
+if(!IN_TG&&'serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 
 </script>
 </body>
