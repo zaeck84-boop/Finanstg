@@ -197,10 +197,11 @@ function themeCard(id,name,v){
   return `<button class="tc${curTheme===id?' on':''}" onclick="setTheme('${id}')"><span class="tp" style="background:${v.bg}"><span style="display:block;height:24px;border-radius:8px;background:linear-gradient(155deg,${v.hero1},${v.hero2});border:1px solid ${v.line}"></span><span style="display:flex;gap:5px;margin-top:7px"><span style="flex:1;height:14px;border-radius:7px;background:${v.card};border:1px solid ${v.line2}"></span><span style="width:28px;height:14px;border-radius:7px;background:${v.accent}"></span></span><span style="display:block;margin-top:7px;width:60%;height:5px;border-radius:3px;background:${v.text};opacity:.85"></span></span><span>${name}</span></button>`}
 function openSettings(){const C=COUNTRIES.find(x=>x[0]===CUR.country)||COUNTRIES[0],n=archCount();
   sheet(`<h2>Настройки</h2>
+  <button class="api" onclick="openPrivacy()"><span class="ar">${ico('shield','#7fb5ac',30)}<span class="apt"><span>Политика конфиденциальности</span><span class="m">Какие данные хранятся и где</span></span></span></button>
   <span class="flt">Страна и валюта</span><button class="api" onclick="pickCountry()"><span class="ar">${flagHtml(C[0])}<span class="apt"><span>${C[1]}</span><span class="m">${CURS[C[2]][1]} · ${CURS[C[2]][0]}</span></span></span></button>
   <span class="flt">Данные</span><button class="api" onclick="openSync()"><span class="ar">${ico('shield','#7fb5ac',30)}<span class="apt"><span>Синхронизация и защита</span><span class="m">${!SYNC.url?'Сервер не подключён':SY.on?(SY.status?'Есть проблема':'Включена'):'Выключена'}</span></span></span></button>
   <span class="flt">Архив</span><button class="api" onclick="openArchive(1)"><span class="ar">${ico('box','#9a9a96',30)}<span class="apt"><span>Архив</span><span class="m">${n?'В архиве: '+n:'Пусто'}</span></span></span></button>
-  <span class="flt">Тема оформления</span><div class="tgrid">${themeCard('auto','Как в Telegram',tvals(resolveTheme('auto')))}${Object.keys(THEMES).map(k=>themeCard(k,THEMES[k][0],tvals(k))).join('')}</div><button class="btn" onclick="closeSheet()">Готово</button><button class="lnk" onclick="openPrivacy()">Политика конфиденциальности</button><button class="lnk" style="color:var(--red)" onclick="wipeAsk()">Удалить все мои данные</button>`)}
+  <span class="flt">Тема оформления</span><div class="tgrid">${themeCard('auto','Как в Telegram',tvals(resolveTheme('auto')))}${Object.keys(THEMES).map(k=>themeCard(k,THEMES[k][0],tvals(k))).join('')}</div><button class="btn" onclick="closeSheet()">Готово</button><button class="lnk" style="color:var(--red)" onclick="wipeAsk()">Удалить все мои данные</button>`)}
 function ctyRows(q){q=normT(q).trim();
   return COUNTRIES.filter(([c,n,k])=>!q||normT(n+' '+k+' '+CURS[k][1]+' '+CURS[k][0]).includes(q)).map(([c,n,k])=>`<button class="api${c===CUR.country?' on':''}" onclick="setCountry('${c}')"><span class="ar">${flagHtml(c)}<span class="apt"><span>${n}</span><span class="m">${CURS[k][1]} · ${CURS[k][0]}</span></span></span></button>`).join('')||'<span class="m">Ничего не найдено</span>'}
 function pickCountry(){sheet(`<h2>Страна и валюта</h2><span class="m">Суммы будут показываться в валюте выбранной страны. Уже записанные суммы не пересчитываются по курсу.</span>
@@ -857,6 +858,7 @@ const homeAcc=()=>{const id=S.settings&&S.settings.homeAcc,a=id&&acc(id);return 
 function quick(type){const a=homeAcc();if(!a)return openTx(type);
   txForm(type==='TR'&&DEBT(a.type)?{type,to:a.id,date:Date.now()}:{type,acc:a.id,date:Date.now()},null)}
 function homeView(){const a=homeAcc(),[from,to]=mRange(0),n=live().length;
+  const pol=`<button class="lnk" style="align-self:center;color:var(--muted);font-size:13px;margin-top:8px" onclick="openPrivacy()">Политика конфиденциальности</button>`;
   const head=`<div class="row"><h2 style="margin:0">Мои финансы</h2><button class="ib" onclick="openSettings()" aria-label="Оформление">${svg(QI.set)}</button></div>`;
   const selBtn=`<button class="hsel" onclick="pickHome()">${a?bankIcon(a,1):ico('layers','#9db4d6',30)}<span class="apt"><span>${a?esc(a.name):'Все счета'}</span><span class="m">${a?esc(accSub(a,false)):'Вместе: '+n+' '+plural(n,'счёт','счёта','счетов')}</span></span>${si('chev')}</button>`;
   const qa=`<div class="qas"><button class="qa" onclick="quick('OUT')"><span class="qi">${svg(QI.out)}</span>Расход</button><button class="qa" onclick="quick('IN')"><span class="qi">${svg(QI.inn)}</span>Доход</button><button class="qa" onclick="quick('TR')"><span class="qi">${svg(QI.tr)}</span>${a&&DEBT(a.type)?'Погасить':'Перевод'}</button><button class="qa" onclick="scanReceipt()"><span class="qi">${svg(QI.qr)}</span>Чек</button><button class="qa hl" onclick="impOpen()"><span class="qi">${svg(QI.up)}</span>Выписка</button></div>`;
@@ -865,7 +867,7 @@ function homeView(){const a=homeAcc(),[from,to]=mRange(0),n=live().length;
   if(!a){const T=totals(),M=month(),B=billSum(billItems());
     return head+hero('Чистый капитал',T.net,[cell('Свои деньги',fmt(T.assets)),cell('Долги',fmt(T.debt)),cell('Обязательства',(B.est?'≈ ':'')+fmt(B.tot),'',"openBills()")])+qa
     +`<div class="grid"><div class="card"><span class="m">Доходы за месяц</span><b class="mid pos">${fmt(M.i)}</b></div><div class="card"><span class="m">Расходы за месяц</span><b class="mid">${fmt(M.o)}</b><span class="m" style="font-size:12.5px">≈ ${fmt(Math.round(M.o/new Date().getDate()))} в день</span></div></div>`
-    +billsHome()+budgetHome()+goalsHome()+`<h2>Последние операции</h2>`+txList(S.txs.slice().sort((x,y)=>y.date-x.date).slice(0,5))}
+    +billsHome()+budgetHome()+goalsHome()+`<h2>Последние операции</h2>`+txList(S.txs.slice().sort((x,y)=>y.date-x.date).slice(0,5))+pol}
   const b=bal(a);let mi=0,mo=0,inLoan=0;
   for(const t of S.txs){if(t.date<from||t.date>=to)continue;if(t.acc===a.id&&t.type==='IN')mi+=t.amt;if(t.acc===a.id&&t.type==='OUT')mo+=t.amt;if(t.type==='TR'&&t.to===a.id)inLoan+=t.amt}
   let h;
@@ -874,7 +876,7 @@ function homeView(){const a=homeAcc(),[from,to]=mRange(0),n=live().length;
   else{const bl=billItems().filter(x=>x.kind==='bill'&&(S.bills.find(y=>y.id===x.id)||{}).acc===a.id);
     h=hero('Остаток',b,[cell('Доходы за месяц',fmt(mi),'pos'),cell('Расходы за месяц',fmt(mo)),cell('Платежи с карты',bl.length?fmt(billSum(bl).tot):'—','',bl.length?'openBills()':'')])}
   const ops=S.txs.filter(t=>t.acc===a.id||t.to===a.id).sort((x,y)=>y.date-x.date).slice(0,5);
-  return head+h+qa+`<h2>Операции по счёту</h2>`+txList(ops)+(ops.length?`<button class="lnk" onclick="flt={acc:'${a.id}',q:'',m:'all'};calv=false;go('Операции')">Все операции по счёту</button>`:'')}
+  return head+h+qa+`<h2>Операции по счёту</h2>`+txList(ops)+(ops.length?`<button class="lnk" onclick="flt={acc:'${a.id}',q:'',m:'all'};calv=false;go('Операции')">Все операции по счёту</button>`:'')+pol}
 function pickHome(){const cur=homeAcc();
   sheet(`<h2>Что показывать на главной</h2><span class="m">Можно смотреть все счета вместе или одну карту.</span>
   <button class="api${cur?'':' on'}" onclick="setHome('')"><span class="ar">${ico('layers','#9db4d6',30)}<span class="apt"><span>Все счета вместе</span><span class="m">Чистый капитал по всем счетам</span></span></span></button>
