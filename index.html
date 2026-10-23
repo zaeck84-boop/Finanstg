@@ -56,6 +56,10 @@ label{font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:6
 .bar{height:8px;border-radius:4px;background:var(--accent);margin-top:4px}
 .err{color:var(--red);font-size:14px}
 button[disabled]{opacity:.35}
+.bk{align-self:flex-start;display:inline-flex;align-items:center;gap:2px;background:none;border:0;color:var(--accent);font:inherit;font-size:16px;font-weight:600;padding:4px 10px 4px 0;margin:-4px 0 -2px -4px}
+.bk svg{width:24px;height:24px}
+input[type=date]{-webkit-appearance:none;appearance:none;min-height:54px;text-align:left}
+input[type=date]::-webkit-date-and-time-value{text-align:left}
 button{transition:transform .15s ease,opacity .15s ease,color .2s ease,background-color .2s ease}
 button:active{transform:scale(.96);opacity:.85}
 .card[onclick]{transition:transform .15s ease}.card[onclick]:active{transform:scale(.985)}
@@ -297,7 +301,10 @@ function setNav(){const nav=document.getElementById('nav');
   if(!navBuilt){nav.innerHTML='<i class="ind"></i>'+TABS.map(t=>`<button onclick="navTap('${t}')">${svg(IC[t])}<span>${t}</span></button>`).join('');navBuilt=true;navDrag(nav)}
   const i=TABS.indexOf(tab),ind=document.querySelector('#nav .ind');if(ind){lens.el=ind;lensGo(i,nav)}
   document.querySelectorAll('#nav button').forEach((b,j)=>b.classList.toggle('on',j===i))}
+let tabHist=[],prevTab='Главная',goingBack=false;
+const BK='<button class="bk" onclick="goBack()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>Назад</button>';
 function render(){
+  if(tab!==prevTab){if(tab==='Главная')tabHist=[];else if(!goingBack){const i=tabHist.indexOf(tab);if(i>=0)tabHist=tabHist.slice(0,i);else{tabHist.push(prevTab);if(tabHist.length>20)tabHist.shift()}}prevTab=tab}goingBack=false;
   const key=tab+(tab==='Планы'?pv:'')+(tab==='Операции'&&calv?'c':''),changed=key!==lastKey;lastKey=key;
   setNav();
   const el=document.getElementById('app');let h='';
@@ -313,7 +320,7 @@ function render(){
     ${a.rate?`<span class="m">Ставка ${esc(a.rate)}%</span>`:''}${a.est?`<span class="m">Остаток оценочный</span>`:''}${d?`<button class="btn g" onclick="event.stopPropagation();openRepay('${a.id}')">Погасить</button>`:''}</div>`}).join('')||`<p class="m">Кредитных карт и кредитов нет</p><button class="btn g" onclick="editAcc(null,'CARD')">Добавить кредитную карту</button><button class="btn g" onclick="editAcc(null,'LOAN')">Добавить кредит</button>`)
     +`<p class="m">Погашение: добавьте перевод с вашего счёта на кредитный. Проценты и комиссии записывайте как расход.</p><button class="btn g" onclick="openBills()">Обязательства на месяц</button>`;
   if(tab==='Планы')h=planView();
-  el.innerHTML=h;
+  el.innerHTML=(tab!=='Главная'?BK:'')+h;syncBack();
   if(changed){window.scrollTo&&window.scrollTo(0,0);el.classList.remove('enter');void el.offsetWidth;el.classList.add('enter');if(tab==='Главная'){const n=document.getElementById('nw');if(n)countUp(n,homeBig)}}
 }
 function txList(list){if(!list.length)return '<p class="m">Пока нет операций</p>';
@@ -794,19 +801,20 @@ function editBill(id,grp){const b=id?S.bills.find(x=>x.id===id):{day:'',grp:grp|
   <label style="flex-direction:row;align-items:center;gap:8px;color:var(--text)"><input id="bl_vary" type="checkbox" style="width:auto" ${b.vary?'checked':''} onchange="billVary()">Сумма меняется каждый месяц (например, ЖКУ)</label>
   <label><span id="bl_amtl">${b.vary?'Примерная сумма (необязательно)':'Сумма в месяц, '+CUR.sym}</span><input id="bl_amt" inputmode="decimal" value="${b.amt?plain(b.amt):''}" placeholder="0"></label>
   ${id&&b.vary?`<button class="btn g" onclick="billMonth('${id}')">Указать сумму за этот месяц</button>`:''}
-  <label>Какого числа платить<input id="bl_day" inputmode="numeric" value="${b.day||''}" placeholder="Например: 10"></label>
+  <label>Дата платежа<input id="bl_day" type="date" value="${billDateVal(b.day)}"></label><span class="m" style="margin-top:-4px;font-size:13px">Повторяется каждый месяц в этот день</span>
   <label>Категория расхода<select id="bl_cat">${catSelOpts(g,b.cat)}</select></label>
   <div class="fl"><span class="flt">Счёт для оплаты (необязательно)</span>${accPick('bl_acc',b.acc,{ph:'Выберу при оплате'})}</div>
   <label>Ссылка для оплаты (необязательно)<input id="bl_link" inputmode="url" autocapitalize="off" value="${esc(b.link||'')}" placeholder="Например: gosuslugi.ru или страница провайдера"></label>
   <div id="f_err" class="err"></div><button class="btn" onclick="saveBill('${id||''}')">Сохранить</button>${id?`<button class="btn r" onclick="delBill('${id}',this)">Удалить платёж</button>`:''}`)}
+function billDateVal(d){if(!d)return '';const n=new Date();let y=n.getFullYear(),m=n.getMonth();for(let k=0;k<12&&new Date(y,m+1,0).getDate()<d;k++){m++;if(m>11){m=0;y++}}const p=x=>String(x).padStart(2,'0');return y+'-'+p(m+1)+'-'+p(d)}
 function billGrp(g){billG=g;document.querySelectorAll('#bl_grps .bgp').forEach(b=>b.classList.toggle('on',b.dataset.g===g));$('bl_sug').innerHTML=sugHtml(g);$('bl_cat').innerHTML=catSelOpts(g)}
 function billSug(g,i){const n=grpOf(g)[4][i];$('bl_name').value=n;if(VARY.includes(n)){$('bl_vary').checked=true;billVary()}}
 function billVary(){$('bl_amtl').textContent=$('bl_vary').checked?'Примерная сумма (необязательно)':'Сумма в месяц, '+CUR.sym}
-function saveBill(id){const e=m=>{$('f_err').textContent=m},name=$('bl_name').value.trim(),vary=!!$('bl_vary').checked,raw=String($('bl_amt').value||'').trim(),amt=raw?parse(raw):0,day=+String($('bl_day').value).trim();
+function saveBill(id){const e=m=>{$('f_err').textContent=m},name=$('bl_name').value.trim(),vary=!!$('bl_vary').checked,raw=String($('bl_amt').value||'').trim(),amt=raw?parse(raw):0,dv=String($('bl_day').value||''),day=dv?+dv.split('-')[2]:NaN;
   let c=$('bl_cat').value;
   if(!name)return e('Введите название');
   if(amt===null||amt<0)return e('Неверная сумма');if(!vary&&!amt)return e('Введите сумму, например 25000');
-  if(!Number.isInteger(day)||day<1||day>31)return e('Укажите число от 1 до 31');if(!c)return e('Выберите категорию');
+  if(!Number.isInteger(day)||day<1||day>31)return e('Выберите дату платежа');if(!c)return e('Выберите категорию');
   if(c.startsWith('new:'))c=ensureCat(c.slice(4));
   const link=validLink($('bl_link').value);if(link===null)return e('Проверьте ссылку: например https://gosuslugi.ru');
   const o={name,amt:amt||0,vary,day,cat:c,grp:billG,acc:$('bl_acc').value||undefined,link:link||undefined};S.bills=S.bills||[];
@@ -1093,8 +1101,21 @@ function backup(){
     d.budgets=d.budgets||{};d.goals=d.goals||[];d.learn=d.learn||{};d.bills=d.bills||[];S=d;save();closeSheet();render()}}
 // Окна
 let closeT;
-function sheet(h){clearTimeout(closeT);const s=document.getElementById('sheet'),b=document.getElementById('box');s.classList.remove('out');b.style.transform='';b.innerHTML=h;s.classList.add('on')}
-function closeSheet(){const s=document.getElementById('sheet');s.classList.add('out');clearTimeout(closeT);closeT=setTimeout(()=>{s.classList.remove('on');s.classList.remove('out')},250)}
+let shStack=[];
+function shTitle(x){if(typeof x==='string'){const m=x.match(/<h2[^>]*>([\s\S]*?)<\/h2>/);if(!m)return '';const d=document.createElement('div');d.innerHTML=m[1];return d.textContent.trim()}const h=x.querySelector('h2');return h?h.textContent.trim():''}
+function shOpen(){const s=document.getElementById('sheet');return s.classList.contains('on')&&!s.classList.contains('out')}
+function sheet(h){clearTimeout(closeT);const s=document.getElementById('sheet'),b=document.getElementById('box');let same=false;
+  if(!shOpen())shStack=[];
+  else{const nt=shTitle(h),ct=shTitle(b),i=nt?shStack.findIndex(e=>e.t===nt):-1;
+    if(i>=0)shStack=shStack.slice(0,i);
+    else if(nt&&nt===ct)same=true;
+    else{const f=document.createDocumentFragment(),y=b.scrollTop;b.querySelectorAll(':scope>.bk').forEach(x=>x.remove());while(b.firstChild)f.appendChild(b.firstChild);shStack.push({f,t:ct,y})}}
+  const y=b.scrollTop;s.classList.remove('out');b.style.transform='';b.innerHTML=BK+h;b.scrollTop=same?y:0;s.classList.add('on');syncBack()}
+function goBack(){try{tg.HapticFeedback.selectionChanged()}catch(e){}
+  if(shOpen()){if(shStack.length){const e=shStack.pop(),b=document.getElementById('box');b.innerHTML=BK;b.appendChild(e.f);b.scrollTop=e.y;syncBack()}else closeSheet();return}
+  if(tab!=='Главная'){goingBack=true;tab=tabHist.pop()||'Главная';render()}}
+function syncBack(){try{const bb=tg&&tg.BackButton;if(!bb)return;if(!bb._on){bb.onClick(goBack);bb._on=1}(tab!=='Главная'||shOpen())?bb.show():bb.hide()}catch(e){}}
+function closeSheet(){const s=document.getElementById('sheet');shStack=[];s.classList.add('out');syncBack();clearTimeout(closeT);closeT=setTimeout(()=>{s.classList.remove('on');s.classList.remove('out')},250)}
 const $=id=>document.getElementById(id);
 const accOpts=(sel,none=true)=>(none?'<option value="">Выберите счёт</option>':'')+live().map(a=>`<option value="${a.id}" ${a.id===sel?'selected':''}>${esc(a.name)}</option>`).join('');
 const catOpts=(kind,sel)=>'<option value="">Выберите категорию</option>'+S.cats.filter(c=>c.kind===kind&&(!c.archived||c.id===sel)).map(c=>`<option value="${c.id}" ${c.id===sel?'selected':''}>${esc(c.name)}</option>`).join('');
@@ -1219,7 +1240,7 @@ async function boot(){
 
 // ===== ИИ помощник =====
 const AI={msgs:[],busy:false};
-const aiBtn=()=>!(tg&&tg.initData)?'':`<button class="card" style="flex-direction:row;align-items:center;gap:12px;text-align:left;color:var(--text);font:inherit" onclick="openAI()">${ico('spark','#c4b5e8',36)}<span class="apt"><span>ИИ помощник</span><span class="m">Спросите о деньгах или напишите «кофе 300»</span></span></button>`;
+const aiBtn=()=>!AI_URL||!(tg&&tg.initData)?'':`<button class="card" style="flex-direction:row;align-items:center;gap:12px;text-align:left;color:var(--text);font:inherit" onclick="openAI()">${ico('spark','#c4b5e8',36)}<span class="apt"><span>ИИ помощник</span><span class="m">Спросите о деньгах или напишите «кофе 300»</span></span></button>`;
 const aiR=k=>Math.round(k/100);
 function aiContext(){const now=new Date(),L=[];
   L.push('Сегодня: '+dkey(Date.now())+'. Валюта: '+CUR.code+' ('+CUR.sym+').');
